@@ -1,23 +1,23 @@
-require('dotenv').config()
+// Hanya load .env saat local, Render inject env otomatis
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config()
+}
+
 const express = require('express')
 const cors = require('cors')
-
 const { preprocessURL, preprocessText, preprocessScreenshot } = require('./lib/preprocessor.js')
 const { checkContentSafety } = require('./lib/safety.js')
 const { analyzeImage } = require('./lib/vision.js')
 const { analyzeWithGPT } = require('./lib/gpt.js')
 
 const app = express()
-
 app.use(cors({ origin: '*' }))
 app.use(express.json({ limit: '20mb' }))
-
 
 app.post('/api/analyze', async (req, res) => {
   try {
     const { type, input, file, mimetype } = req.body
     let processed = null
-
     console.log(`[analyze] Request type: ${type}`)
 
     if (!type) {
@@ -30,18 +30,15 @@ app.post('/api/analyze', async (req, res) => {
       console.log(`[analyze] Preprocessing URL: ${input}`)
       processed = await preprocessURL(input)
       console.log(`[analyze] preprocessURL result: ${JSON.stringify(processed)}`)
-
     } else if (type === 'text') {
       if (!input) return res.status(400).json({ error: 'Input teks kosong.' })
       console.log(`[analyze] Preprocessing text`)
       processed = preprocessText(input)
-
     } else if (type === 'screenshot') {
       if (!file) return res.status(400).json({ error: 'File screenshot tidak ditemukan.' })
       console.log(`[analyze] Preprocessing screenshot`)
       const buffer = Buffer.from(file, 'base64')
       processed = preprocessScreenshot(buffer, mimetype || 'image/jpeg')
-
     } else {
       return res.status(400).json({ error: `Tipe tidak valid: "${type}". Gunakan: url, text, atau screenshot.` })
     }
@@ -85,7 +82,6 @@ app.post('/api/analyze', async (req, res) => {
     console.log(`[analyze] Sending to GPT. Content (100 chars): ${contentToAnalyze?.slice(0, 100)}`)
     const result = await analyzeWithGPT(contentToAnalyze)
     console.log(`[analyze] GPT result: ${JSON.stringify(result)}`)
-
     return res.json(result)
 
   } catch (err) {
